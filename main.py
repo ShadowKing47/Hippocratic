@@ -1,6 +1,6 @@
-# bedtime_story_system.py
+# bedtime_story_system_gemini.py
 import os
-import openai
+import google.generativeai as genai
 import random
 import textwrap
 import json
@@ -20,11 +20,11 @@ If I had 2 more hours, I would:
 -Add character images and background images, to create picture book like characteristics
 """
 
-# --- PLEASE DO NOT PUT YOUR OPENAI API KEY IN THIS FILE ---
-# The script uses OPENAI_API_KEY from environment variables:
-# export OPENAI_API_KEY="sk-..."  (do not commit this to git)
+# --- PLEASE DO NOT PUT YOUR GEMINI API KEY IN THIS FILE ---
+# The script uses GOOGLE_API_KEY from environment variables:
+# export GOOGLE_API_KEY="your-api-key-here"  (do not commit this to git)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Keep this exactly as requested:
 example_requests = "A story about a girl named Alice and her best friend Bob, who happens to be a cat."
@@ -55,18 +55,28 @@ MOOD_KEYWORDS = {
     "playful": ["fun", "silly", "joke", "play"]
 }
 
-# Utility: call OpenAI ChatCompletion (gpt-3.5-turbo as required)
+# Utility: call Gemini API (using gemini-1.5-flash as a good alternative to gpt-3.5-turbo)
 def call_model(prompt: str, max_tokens=700, temperature=0.6) -> str:
-    if not openai.api_key:
-        raise RuntimeError("OPENAI_API_KEY not found in environment. Please set it before running.")
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        stream=False,
-        max_tokens=max_tokens,
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY not found in environment. Please set it before running.")
+    
+    # Initialize the model
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # Configure generation parameters
+    generation_config = genai.types.GenerationConfig(
+        max_output_tokens=max_tokens,
         temperature=temperature,
     )
-    return resp.choices[0].message["content"]  # type: ignore
+    
+    # Generate content
+    response = model.generate_content(
+        prompt,
+        generation_config=generation_config
+    )
+    
+    return response.text
 
 # Mini-psychologist: simple keyword-based mood detection (keeps privacy + offline-capable)
 def detect_mood(user_text: str) -> str:
@@ -160,11 +170,11 @@ Output MUST be valid JSON only, with keys:
 scores, critique, revisions
 
 Example format:
-{
-  "scores": {"AgeAppropriateness":9, "ToneCalmness":8, ...},
+{{
+  "scores": {{"AgeAppropriateness":9, "ToneCalmness":8, ...}},
   "critique": "Short critique here.",
   "revisions": ["Make the climax gentler.", "Add one line of dialogue.", ...]
-}
+}}
 """
     return prompt.strip()
 
